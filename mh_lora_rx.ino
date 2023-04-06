@@ -1,6 +1,8 @@
 #include <SPI.h>
 #include <LoRa.h>
 #include <Adafruit_SleepyDog.h>
+#include <Arduino_JSON.h>
+#include <CRC32.h>
 #include "TimeLib.h"
 
 String readBuffer = "";
@@ -62,12 +64,31 @@ void loop() {
       Serial.print("' with RSSI ");
       Serial.println(LoRa.packetRssi());
       Watchdog.reset();
+
+      JSONVar sample = validateSampleAndCreateJSON(readBuffer);
+      if(sample != null)
+      {
+        Watchdog.reset();
+        Serial.println("Sending ACK back");
+        // send packet
+        LoRa.beginPacket();
+        LoRa.print("ACK");
+        LoRa.endPacket();
+
+        String postData = JSON.stringify(sample);
+        //TODO: SEND TO INTERNET
+        Serial.println(postData);
+        
+      } else {
+        Serial.println("Sample '" + readBuffer + "' discarded");
+      }
+      readBuffer = "";
+      Watchdog.reset();
     }
     Watchdog.reset();
     digitalWrite(LED_BUILTIN, LOW);
     lastLoopMillis = millis(); // set the timing for the next loop
     Watchdog.reset();
-    readBuffer = "";
   }
 }
 
@@ -90,4 +111,80 @@ String formatDateTime(time_t t)
     String retval = y_s + "-" + mn_s + "-" + d_s + " " + h_s + ":" + mi_s + ":" + s_s + " UTC";
 
     return retval;
+}
+
+JSONVar validateSampleAndCreateJSON(String sampleString) 
+{
+  JSONVar sample;
+  char buf[sizeof(sampleString)];
+  sampleString.toCharArray(buf, sizeof(buf));
+  char *p = buf;
+  char *str;
+  int i = 0;
+  bool validSample = false;
+  bool validTemp = false;
+  double thisTemp = 0.0;
+  Watchdog.reset();
+  Serial.println("Tokenizing '" + String(p) + "'");
+  while ((str = strtok_r(p, ";", &p)) != NULL && i < 3) // delimiter is the semicolon
+  {
+    char *end;
+    double val = strtod(str, &end);
+    if(str != end) {
+      if(i == 0) 
+      {
+        sample["temperature"] = String(val);
+        validTemp = true;
+        thisTemp = val;
+      } 
+      else if (i == 1) 
+      {
+        sample["voltage"] = String(val);
+        if(validTemp) { // we have both temp and voltage -- likely a good read
+          validSample = true;
+        }
+      } 
+      else if (i == 2)
+      {
+        Serial.println("CRC: " + String(str));
+        unsigned int crc_received = atoi(str);
+        String toCheck = sample["temperature"] + ";" + sample["voltage"];
+        unsigned int checksum = computeCRC(toCheck);
+        if(crc_received != checksum)
+        {
+          Serial.println("Checksum " + String(checksum) + " doesn't match checksum in transmission (" + String(crc_received) + ")");
+          validSample = false;
+        } else {
+          Serial.println("Checksum " + String(checksum) + " is ok!");
+        }
+      } 
+      else 
+      {
+        Serial.println("Extra data received [" + String(i) + "]: " + String(str));
+      }  
+    } else {
+      Serial.println("Invalid value received [" + String(i) + "]: " + String(str));
+    }
+    i++;
+  }
+  if(validSample) 
+  {
+    return sample;
+  } else {
+    return null;
+  }
+}
+
+uint32_t computeCRC(String input)
+{
+  CRC32 crc;
+  char stringToCRC[255];
+  int len = input.length() + 1;
+  if(len > 255)
+    len = 254;
+  
+  input.toCharArray(stringToCRC, len);
+  
+  crc.add((uint8_t*)stringToCRC, len);
+  return crc.getCRC();
 }
