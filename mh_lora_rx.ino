@@ -66,7 +66,8 @@ void loop() {
       Watchdog.reset();
 
       JSONVar sample = validateSampleAndCreateJSON(readBuffer);
-      if(sample != null)
+      Serial.println("Got sample with length " + String(JSON.stringify(sample).length()));
+      if(JSON.stringify(sample).length() > 0)
       {
         Watchdog.reset();
         Serial.println("Sending ACK back");
@@ -77,7 +78,9 @@ void loop() {
 
         String postData = JSON.stringify(sample);
         //TODO: SEND TO INTERNET
+        Serial.println("BEGIN DATA");
         Serial.println(postData);
+        Serial.println("END");
         
       } else {
         Serial.println("Sample '" + readBuffer + "' discarded");
@@ -116,14 +119,16 @@ String formatDateTime(time_t t)
 JSONVar validateSampleAndCreateJSON(String sampleString) 
 {
   JSONVar sample;
-  char buf[sizeof(sampleString)];
-  sampleString.toCharArray(buf, sizeof(buf));
+  char buf[255];
+  sampleString.toCharArray(buf, 255);
   char *p = buf;
   char *str;
   int i = 0;
   bool validSample = false;
   bool validTemp = false;
-  double thisTemp = 0.0;
+  String tempString = "";
+  String voltageString = "";
+  
   Watchdog.reset();
   Serial.println("Tokenizing '" + String(p) + "'");
   while ((str = strtok_r(p, ";", &p)) != NULL && i < 3) // delimiter is the semicolon
@@ -135,20 +140,22 @@ JSONVar validateSampleAndCreateJSON(String sampleString)
       {
         sample["temperature"] = String(val);
         validTemp = true;
-        thisTemp = val;
+        tempString = String(val,1);
       } 
       else if (i == 1) 
       {
         sample["voltage"] = String(val);
         if(validTemp) { // we have both temp and voltage -- likely a good read
           validSample = true;
+          voltageString = String(val,1);
         }
       } 
       else if (i == 2)
       {
         Serial.println("CRC: " + String(str));
-        unsigned int crc_received = atoi(str);
-        String toCheck = sample["temperature"] + ";" + sample["voltage"];
+        unsigned int crc_received = atoi(str);        
+        String toCheck = tempString + ";" + voltageString;
+        Serial.println("Get CRC of '" + toCheck + "'");
         unsigned int checksum = computeCRC(toCheck);
         if(crc_received != checksum)
         {
@@ -156,6 +163,7 @@ JSONVar validateSampleAndCreateJSON(String sampleString)
           validSample = false;
         } else {
           Serial.println("Checksum " + String(checksum) + " is ok!");
+          validSample = true;
         }
       } 
       else 
@@ -169,9 +177,11 @@ JSONVar validateSampleAndCreateJSON(String sampleString)
   }
   if(validSample) 
   {
+    Serial.println("Valid sample, returning sample");
     return sample;
   } else {
-    return null;
+    Serial.println("Invalid sample, returning new JSONVar");
+    return new JSONVar;
   }
 }
 
