@@ -67,7 +67,7 @@ void loop() {
 
       JSONVar sample = validateSampleAndCreateJSON(readBuffer);
       Serial.println("Got sample with length " + String(JSON.stringify(sample).length()));
-      if(JSON.stringify(sample).length() > 0)
+      if(JSON.stringify(sample).length() > 4)
       {
         Watchdog.reset();
         Serial.println("Sending ACK back");
