@@ -153,7 +153,8 @@ JSONVar validateSampleAndCreateJSON(String sampleString)
       else if (i == 2)
       {
         Serial.println("CRC: " + String(str));
-        unsigned int crc_received = atoi(str);        
+        char *ptr;
+        unsigned int crc_received = strtoul(str, &ptr, 10);
         String toCheck = tempString + ";" + voltageString;
         Serial.println("Get CRC of '" + toCheck + "'");
         unsigned int checksum = computeCRC(toCheck);
