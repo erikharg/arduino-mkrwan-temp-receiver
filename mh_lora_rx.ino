@@ -140,7 +140,14 @@ JSONVar validateSampleAndCreateJSON(String sampleString)
       {
         sample["temperature"] = String(val);
         validTemp = true;
-        tempString = String(val,1);
+        int wholePart = (int)floor(val);
+        String tempStringWholeNum = String(wholePart);
+        size_t tempStringLen = strlen(str);
+        size_t tempStringWholeNumLen = strlen(tempStringWholeNum.c_str());
+        size_t fractionalDigits = tempStringLen - tempStringWholeNumLen - 1;
+        
+        tempString = String(val,fractionalDigits);
+        Serial.println("T from '" + String(str) + "' => '" + tempString +"' ("+ String(tempStringLen) + "," + String(tempStringWholeNumLen) + "," + String(fractionalDigits) + ") W='" + tempStringWholeNum + "'");
       } 
       else if (i == 1) 
       {
