@@ -153,7 +153,6 @@ JSONVar validateSampleAndCreateJSON(String sampleString)
       {
         sample["voltage"] = String(val);
         if(validTemp) { // we have both temp and voltage -- likely a good read
-          validSample = true;
           voltageString = String(val,1);
         }
       } 
