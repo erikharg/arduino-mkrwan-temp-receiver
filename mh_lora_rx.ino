@@ -20,16 +20,18 @@ void setup() {
   int countdownMS = Watchdog.enable(16000); // 16s is max timeout
   
   Serial.begin(9600);
+  delay(2000);
   Serial.print("Enabled the watchdog with max countdown of ");
   Serial.print(countdownMS, DEC);
   Serial.println(" milliseconds!");
     
-  delay(5000);
+  delay(1000);
 
   Serial.println("LoRa Receiver");
 
   if (!LoRa.begin(868E6)) {
     Serial.println("Starting LoRa failed!");
+    LoRa.end();
     while (1);
   }
   LoRa.enableCrc();
@@ -203,5 +205,5 @@ uint32_t computeCRC(String input)
   input.toCharArray(stringToCRC, len);
   
   crc.add((uint8_t*)stringToCRC, len);
-  return crc.getCRC();
+  return crc.calc();
 }
